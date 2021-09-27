@@ -1,5 +1,5 @@
 use crate::packet::TCPPacket;
-use crate::socket::{SockID, Socket, TcpStatus};
+use crate::socket::{SocketID, Socket, TcpStatus};
 use crate::tcpflags;
 use anyhow::{Context, Result};
 use pnet::packet::{ip::IpNextHeaderProtocols, tcp::TcpPacket, Packet};
@@ -18,3 +18,7 @@ const MAX_TRANSMITTION: u8 = 5;
 const RETRANSMITTION_TIMEOUT: u64 = 3;
 const MSS: usize = 1460;
 const PORT_RANGE: Range<u16> = 40000..60000;
+
+pub struct TCP {
+    sockets: HashMap<SocketID, Socket>,
+}

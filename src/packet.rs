@@ -6,6 +6,7 @@ use std::fmt::{self, Debug};
 use std::net::Ipv4Addr;
 const TCP_HEADER_SIZE: usize = 20;
 
+#[derive(Clone)]
 pub struct TCPPacket {
     buffer: Vec<u8>,
 
