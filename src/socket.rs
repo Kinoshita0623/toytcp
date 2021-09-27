@@ -49,4 +49,13 @@ impl Socket {
         let sent_size = self.sender.send_to(tcp_packet.clone(), IpAddr::V4(self.remote_addr)).unwrap();
         return Ok(sent_size);
     }
+
+    pub fn get_socket_id(&mut self) -> SocketID {
+        return SocketID(
+            self.local_addr,
+            self.remote_addr,
+            self.local_port,
+            self.remote_port
+        );
+    }
 }

@@ -22,3 +22,36 @@ const PORT_RANGE: Range<u16> = 40000..60000;
 pub struct TCP {
     sockets: HashMap<SocketID, Socket>,
 }
+
+impl TCP {
+    pub fn new() -> Self {
+        let sockets = HashMap::new();
+
+        //let tcp = Self { sockets: sockets };
+        Self { sockets }
+    }
+
+    fn select_unused_port(&self, _: &mut ThreadRng) -> Result<u16> {
+        Ok(33445)
+    }
+
+    pub fn connect(&self, addr: Ipv4Addr, port: u16) -> Result<SocketID> {
+        let mut rng = rand::thread_rng();
+        let mut socket = Socket::new(
+            get_source_addr_to(addr)?,
+            addr,
+            self.select_unused_port(&mut rng)?,
+            port,
+        )?;
+        socket.send_tcp_packet(tcpflags::SYN, &[])?;
+        let socket_id = socket.get_socket_id();
+        return Ok(socket_id);
+    } 
+
+    
+}
+
+
+fn get_source_addr_to(addr: Ipv4Addr) -> Result<Ipv4Addr> {
+    return Ok("10.0.0.1".parse().unwrap());
+}
