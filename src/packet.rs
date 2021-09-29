@@ -118,7 +118,7 @@ impl TCPPacket {
     }
 
     pub fn set_payload(&mut self, payload: &[u8]) {
-        
+        self.buffer[TCP_HEADER_SIZE..TCP_HEADER_SIZE + payload.len() as usize].copy_from_slice(payload);
     }
 
 }
