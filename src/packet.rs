@@ -136,3 +136,9 @@ impl Packet for TCPPacket {
         &self.buffer[TCP_HEADER_SIZE..]
     }
 }
+
+impl Debug for TCPPacket {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(f, r" src:{}, dst:{}, flag:{}, payload_len: {}", self.get_src(), self.get_dest(), self.get_flag(), self.payload().len());
+    }
+}
