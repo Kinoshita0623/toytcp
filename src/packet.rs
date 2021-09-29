@@ -142,3 +142,14 @@ impl Debug for TCPPacket {
         return write!(f, r" src:{}, dst:{}, flag:{}, payload_len: {}", self.get_src(), self.get_dest(), self.get_flag(), self.payload().len());
     }
 }
+
+/**
+ * pnet::packet::tcp::TcpPacketを変換するための実装
+ */
+impl<'a> From<TcpPacket<'a>> for TCPPacket {
+    fn from(packet: TcpPacket) -> Self {
+        return Self {
+            buffer: packet.packet().to_vec(),
+        };
+    }
+}
