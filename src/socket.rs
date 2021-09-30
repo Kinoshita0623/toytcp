@@ -14,6 +14,22 @@ const SOCKET_BUFFER_SIZE: usize = 4380;
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
 pub struct SocketID(pub Ipv4Addr, pub Ipv4Addr, pub u16, pub u16);
 
+#[derive(Clone, Debug)]
+pub struct SendParam {
+    pub unacked_seq: u32,
+    pub next: u32,
+    pub window: u16,
+    pub initial_seq: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct RecvParam {
+    pub next: u32,
+    pub window: u16,
+    pub initial_seq: u32,
+    pub tail: u32,
+}
+
 pub struct Socket {
     pub local_addr: Ipv4Addr,
     pub remote_addr: Ipv4Addr,
@@ -22,7 +38,6 @@ pub struct Socket {
     pub sender: TransportSender,
 }
 
-pub enum TcpStatus {}
 
 impl Socket {
     pub fn new(
@@ -57,5 +72,34 @@ impl Socket {
             self.local_port,
             self.remote_port
         );
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum TcpStatus {
+    Listen,
+    SynSent,
+    SynRcvd,
+    Estableished,
+    FinWait1,
+    FinWait2,
+    TimeWait,
+    CloseWait,
+    LastAck,
+}
+
+impl Display for TcpStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        return match self {
+            TcpStatus::Listen => write!(f, "LISTEN"),
+            TcpStatus::SynSent => write!(f, "SYNSENT"),
+            TcpStatus::SynRcvd => write!(f, "SYNRCVD"),
+            TcpStatus::Estableished => write!(f, "ESTABLISHED"),
+            TcpStatus::FinWait1 => write!(f, "FINWAIT1"),
+            TcpStatus::FinWait2 => write!(f, "FINWAIT2"),
+            TcpStatus::TimeWait => write!(f, "TIMEWAIT"),
+            TcpStatus::CloseWait => write!(f, "CLOSEWAIT"),
+            TcpStatus::LastAck => write!(f, "LASTACK")
+        };
     }
 }
