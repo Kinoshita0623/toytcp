@@ -81,8 +81,67 @@ impl TCP {
             TransportChannelType::Layer3(IpNextHeaderProtocols::Tcp),
         )?;
         let mut packet_iter = transport::ipv4_packet_iter(&mut receiver);
+        loop {
+            // 次のパケットが来るまでスレッドをブロックして待つ
+            let (packet, remote_addr) = match packet_iter.next() {
+                Ok((p, r)) => (p,r ), 
+                Err(_) => continue,
+            };
+            let local_addr = packet.get_destination();
+            let tcp_packet = match TcpPacket::new(packet.payload()) {
+                Some(p) => p,
+                None => {
+                    continue;
+                }
+            };
+            let packet = TCPPacket::from(tcp_packet);
+            let remote_addr = match remote_addr {
+                IpAddr::V4(addr) => addr,
+                _ => {
+                    continue;
+                }
+            };
+            let mut table = self.sockets.write().unwrap();
+            let socket = match table.get_mut(
+                &SocketID(
+                    local_addr,
+                    remote_addr,
+                    packet.get_dest(),
+                    packet.get_src()
+                )
+            ) {
+                Some(socket) => socket, // 接続済みソケット
+                None => match table.get_mut(
+                    &SocketID(
+                        local_addr,
+                        UNDETERMINED_IP_ADDR,
+                        packet.get_dest(),
+                        UNDETERMINED_PORT
+                    ) 
+                ) {
+                    Some(socket) => socket, // リスニングソケット
+                    None => continue,
+                }
+            };
 
-        Ok();
+            if !packet.is_correct_checksum(local_addr, remote_addr) {
+                dbg!("invalid checksum");
+                continue;
+            }
+            let socket_id = socket.get_socket_id();
+            if let Err(error) = match socket.status {
+                TcpStatus::SynSent => self.synsent_handler(socket, &packet),
+                _ => {
+                    dbg!("not implemented state");
+                    Ok(())
+                }
+            } {
+                dbg!(error);
+            }
+
+
+        }
+
     }
     
 }
