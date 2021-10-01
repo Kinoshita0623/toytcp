@@ -14,20 +14,26 @@ const SOCKET_BUFFER_SIZE: usize = 4380;
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
 pub struct SocketID(pub Ipv4Addr, pub Ipv4Addr, pub u16, pub u16);
 
+/**
+ * どこまで送信したかの情報を持つ
+ */
 #[derive(Clone, Debug)]
 pub struct SendParam {
-    pub unacked_seq: u32,
-    pub next: u32,
-    pub window: u16,
+    pub unacked_seq: u32,   // 送信後まだACKされていないSequenceの先頭
+    pub next: u32,  // 次の送信
+    pub window: u16,    // 送信ウィンドウサイズ
     pub initial_seq: u32,
 }
 
+/**
+ * どこまで受信したかの情報を持つ
+ */
 #[derive(Clone, Debug)]
 pub struct RecvParam {
-    pub next: u32,
-    pub window: u16,
-    pub initial_seq: u32,
-    pub tail: u32,
+    pub next: u32,  // 次に受信するSequence
+    pub window: u16,    // 受信ウィンドウ
+    pub initial_seq: u32,   // 初期受信Sequence
+    pub tail: u32,  // 受信Sequenceの最終尾
 }
 
 pub struct Socket {
