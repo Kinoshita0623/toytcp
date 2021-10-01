@@ -143,6 +143,33 @@ impl TCP {
         }
 
     }
+
+    fn synsent_handler(&self, socket: &mut Socket, packet: &TCPPacket) -> Result<()> {
+        dbg!("synsent handler");
+        
+        if packet.get_flag() & tcpflags::ACK > 0 
+            && socket.send_param.unacked_seq <= packet.get_ack() 
+            && packet.get_ack() <= socket.send_param.next 
+            && packet.get_flag() & tcpflags::SYN > 0 {
+
+            socket.recv_param.next = packet.get_seq() + 1;
+            socket.recv_param.initial_seq = packet.get_seq();
+            socket.send_param.unacked_seq = packet.get_ack();
+            socket.send_param.window = packet.get_window_size();
+            if socket.send_param.unacked_seq > socket.send_param.initial_seq {
+                socket.status = TcpStatus::Estableished;
+                socket.send_tcp_packet(socket.send_param.next, socket.recv_param.next, tcpflags::ACK, &[])?;
+                dbg!("status: synsent ->", &socket.status);
+                self.publish_event(socket.get_socket_id(), TCPEventKind::ConnectionCompleted);
+            } else {
+                socket.status = TcpStatus::SynRcvd;
+                socket.send_tcp_packet(socket.send_param.next, socket.recv_param.next, tcpflags::ACK, &[])?;
+                dbg!("status: synsent ->", &socket.status);
+            }
+            
+        }
+        return Ok(());
+    }
     
 }
 
