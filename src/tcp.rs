@@ -34,7 +34,7 @@ impl TCP {
         });
         let cloned_tcp = tcp.clone();
         std::thread::spawn(move || {
-            cloned_tcp.receive_handler().unwrap();
+            cloned_tcp.recieve_handler().unwrap();
         });
         return tcp;
     }
@@ -67,10 +67,11 @@ impl TCP {
         let mut table =self.sockets.write().unwrap();
         let socket_id = socket.get_socket_id();
 
+        table.insert(socket_id, socket);
         // ロックを解除してイベントの待機。
         // 受信スレッドがロックを獲得できるようにするため。
         drop(table);
-        self.write_event(socket_id, TCPEventKind::ConnectionComplete);
+        self.wait_event(socket_id, TCPEventKind::ConnectionCompleted);
         return Ok(socket_id);
     } 
 
@@ -146,7 +147,9 @@ impl TCP {
 
     fn synsent_handler(&self, socket: &mut Socket, packet: &TCPPacket) -> Result<()> {
         dbg!("synsent handler");
-        
+        // SYN・ACKであること
+        // ACK送信した時以上に大きいことをチェックしている
+        //（送信したSYNパケットの次のパケットであることをチェックしている）
         if packet.get_flag() & tcpflags::ACK > 0 
             && socket.send_param.unacked_seq <= packet.get_ack() 
             && packet.get_ack() <= socket.send_param.next 
@@ -170,6 +173,28 @@ impl TCP {
         }
         return Ok(());
     }
+
+    fn wait_event(&self, socket_id: SocketID, kind: TCPEventKind) {
+        let (lock, cvar) = &self.event_condvar;
+        let mut event = lock.lock().unwrap();
+        loop {
+            if let  Some(ref e) = *event {
+                if e.socket_id == socket_id && e.kind == kind {
+                    break;
+                }
+            }
+            event = cvar.wait(event).unwrap();
+        }
+        dbg!(&event);
+        *event = None;
+    }
+
+    fn publish_event(&self, socket_id: SocketID, kind: TCPEventKind) {
+        let (lock, cvar) = &self.event_condvar;
+        let mut e = lock.lock().unwrap();
+        *e = Some(TCPEvent::new(socket_id, kind));
+        cvar.notify_all();
+    }
     
 }
 
@@ -192,3 +217,26 @@ fn get_source_addr_to(addr: Ipv4Addr) -> Result<Ipv4Addr> {
         dbg!("source addr", ip);
         return ip.parse().context("failed to parse source ip");
 }
+
+#[derive(Debug, Clone, PartialEq)]
+struct TCPEvent {
+    socket_id: SocketID,
+    kind: TCPEventKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TCPEventKind {
+    ConnectionCompleted,
+    Acked,
+    DataArrived,
+    ConnectionClosed,
+}
+
+impl TCPEvent {
+    fn new(socket_id: SocketID, kind: TCPEventKind) -> Self {
+        return Self {
+            socket_id, kind,
+        };
+    }
+}
+
