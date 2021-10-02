@@ -175,7 +175,10 @@ impl TCP {
         }
 
     }
-
+    
+    /**
+     * syncを送信した後に受信されると呼び出される。
+     */
     fn synsent_handler(&self, socket: &mut Socket, packet: &TCPPacket) -> Result<()> {
         dbg!("synsent handler");
         // SYN・ACKであること
@@ -205,6 +208,10 @@ impl TCP {
         return Ok(());
     }
 
+    /**
+     * 現在の状態がLISTENの場合呼び出されるハンドラー。
+     * 受診されたパケットのフラグがSYNだった場合はSYN・ACKを送信して状態をSynRcvdにする。
+     */
     fn listen_handler(
         &self, mut table: RwLockWriteGuard<HashMap<SocketID, Socket>>, 
         listening_socket_id: SocketID, 
@@ -219,7 +226,9 @@ impl TCP {
         }
         
         let listening_socket = table.get_mut(&listening_socket_id).unwrap();
-        if packet.get_flag() & tcpflags::SYN >0 {
+
+        // SYNを受信した場合
+        if packet.get_flag() & tcpflags::SYN > 0 {
             // passive openの処理
             // 後に接続済みとなるソケットとなるソケットを新たに生成する
             let mut connection_socket = Socket::new(
@@ -233,6 +242,8 @@ impl TCP {
             connection_socket.recv_param.initial_seq = packet.get_seq();
             connection_socket.send_param.initial_seq = rand::thread_rng().gen_range(1..1 << 31);
             connection_socket.send_param.window = packet.get_window_size();
+
+            // SYN・ACKを送信する
             connection_socket.send_tcp_packet(
                 connection_socket.send_param.initial_seq,
                 connection_socket.recv_param.next,
@@ -249,6 +260,10 @@ impl TCP {
 
     }
 
+    /**
+     * 現在の状態がsynrcvdなときに呼び出されるハンドラー。
+     * 受信したパケットがACKの場合はESTABLISHEDへ遷移する。
+     */
     fn synrcvd_handler(
         &self,
         mut table: RwLockWriteGuard<HashMap<SocketID, Socket>>, 
