@@ -44,6 +44,47 @@ impl TCP {
         return tcp;
     }
 
+    fn timer(&self) {
+        dbg!("begin timer thread");
+        loop {
+            let mut table = self.sockets.write().unwrap();
+            for (_, socket) in table.iter_mut() {
+                while let Some(mut item) = socket.retransmission_queue.pop_front() {
+                    if socket.send_param.unacked_seq > item.packet.get_seq() {
+                        dbg!("successfully acked", item.packet.get_seq());
+                        continue;
+                    }
+
+                    if item.latest_transmission_time.elapsed().unwrap() < Duration::from_secs(RETRANSMITTION_TIMEOUT) {
+                        socket.retransmission_queue.push_front(item);
+                        break;
+                    }
+                    if item.transmission_count < MAX_TRANSMITTION {
+                        // 再送を行う
+                        dbg!("retransmit");
+                        socket.sender.send_to(item.packet.clone(), IpAddr::V4(socket.remote_addr))
+                            .context("failed to retransmit")
+                            .unwrap();
+
+                        // 再送回数を更新
+                        item.transmission_count += 1;
+                        
+                        // 最終再送時間を更新
+                        item.latest_transmission_time = SystemTime::now();
+                        socket.retransmission_queue.push_back(item);
+                        break;
+                    } else {
+                        // 再送回数の上限を超えたのでパケットは破棄する
+                        dbg!("reached MAX_TRANSMISSION");
+                    }
+
+                }
+            }
+            drop(table);
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+
 
     /**
      * アクティブオープンの場合に使用されるメソッド
@@ -384,40 +425,7 @@ impl TCP {
     }
     
 
-    fn timer(&self) {
-        dbg!("begin timer thread");
-        loop {
-            let mut table = self.sockets.write().unwrap();
-            for (_, socket) in table.iter_mut() {
-                while let Some(mut item) = socket.retransmission_queue.pop_front() {
-                    if socket.send_param.unacked_seq > item.packet.get_seq() {
-                        dbg!("successfully acked", item.packet.get_seq());
-                        continue;
-                    }
 
-                    if item.latest_transmission_time.elapsed().unwrap() < Duration::from_secs(RETRANSMITTION_TIMEOUT) {
-                        socket.retransmission_queue.push_front(item);
-                        break;
-                    }
-                    if item.transmission_count < MAX_TRANSMITTION {
-                        dbg!("retransmit");
-                        socket.sender.send_to(item.packet.clone(), IpAddr::V4(socket.remote_addr))
-                            .context("failed to retransmit")
-                            .unwrap();
-                        item.transmission_count += 1;
-                        socket.retransmission_queue.push_back(item);
-                        break;
-                    } else {
-                        // 再送回数の上限を超えたのでパケットは破棄する
-                        dbg!("reached MAX_TRANSMISSION");
-                    }
-
-                }
-            }
-            drop(table);
-            thread::sleep(Duration::from_millis(100));
-        }
-    }
 }
 
 
