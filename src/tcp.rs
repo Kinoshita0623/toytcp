@@ -116,7 +116,7 @@ impl TCP {
                 &buffer[cursor..cursor + send_size],
             )?;
             cursor += send_size;
-            socket.send_param.next = send_size as u32;
+            socket.send_param.next += send_size as u32;
         }
         return Ok(());
     }
@@ -189,6 +189,7 @@ impl TCP {
                 continue;
             }
             let socket_id = socket.get_socket_id();
+            dbg!("received packet:", &packet);
             if let Err(error) = match socket.status {
                 TcpStatus::Listen => self.listen_handler(table, socket_id, &packet, remote_addr),
                 TcpStatus::SynRcvd => self.synrcvd_handler(table, socket_id, &packet),
