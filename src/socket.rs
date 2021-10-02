@@ -44,6 +44,7 @@ pub struct Socket {
     pub send_param: SendParam,
     pub recv_param: RecvParam,
     pub status: TcpStatus,
+    pub retransmission_queue: VecDeque<RetransmissionQueueEntry>,   // 再送のためのQueue
     pub connected_connection_queue: VecDeque<SocketID>,
     pub listening_socket: Option<SocketID>,
     pub sender: TransportSender,
@@ -65,6 +66,7 @@ impl Socket {
             local_port,
             remote_port,
             status: status,
+            retransmission_queue: VecDeque::new(),
             send_param: SendParam {
                 unacked_seq: 0,
                 initial_seq: 0,
@@ -106,6 +108,12 @@ impl Socket {
         let sent_size = self.sender.send_to(tcp_packet.clone(), IpAddr::V4(self.remote_addr))
             .context(format!("failed to send: \n{:?}", tcp_packet))?;
         dbg!("sent", &tcp_packet);
+
+        // payloadが空でフラグがACKなパケットは再送しない
+        if payload.is_empty() && tcp_packet.get_flag() == tcpflags::ACK {
+            return Ok(sent_size);
+        }
+        self.retransmission_queue.push_back(RetransmissionQueueEntry::new(tcp_packet));
         return Ok(sent_size);
     }
 
@@ -144,6 +152,23 @@ impl Display for TcpStatus {
             TcpStatus::TimeWait => write!(f, "TIMEWAIT"),
             TcpStatus::CloseWait => write!(f, "CLOSEWAIT"),
             TcpStatus::LastAck => write!(f, "LASTACK")
+        };
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RetransmissionQueueEntry {
+    pub packet: TCPPacket,
+    pub latest_transmission_time: SystemTime,   // 最後に送信された時刻
+    pub transmission_count: u8, // 送信回数
+}
+
+impl RetransmissionQueueEntry {
+    fn new(packet: TCPPacket) -> Self {
+        return Self {
+            packet,
+            latest_transmission_time: SystemTime::now(),
+            transmission_count: 1,
         };
     }
 }

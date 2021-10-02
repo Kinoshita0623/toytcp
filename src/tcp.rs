@@ -194,6 +194,7 @@ impl TCP {
                 TcpStatus::Listen => self.listen_handler(table, socket_id, &packet, remote_addr),
                 TcpStatus::SynRcvd => self.synrcvd_handler(table, socket_id, &packet),
                 TcpStatus::SynSent => self.synsent_handler(socket, &packet),
+                TcpStatus::Estableished => self.established_handler(socket, &packet),
                 _ => {
                     dbg!("not implemented state:", &socket.status);
                     Ok(())
@@ -318,6 +319,41 @@ impl TCP {
             }
         }
         return Ok(());
+    }
+
+    /**
+     * ACKされて再送の必要性は無くなったためQueueから削除する。
+     */
+    fn delete_acked_segment_from_retransmission_queue(&self, socket: &mut Socket) {
+        dbg!("ack accept", socket.send_param.unacked_seq);
+        while let Some(item) = socket.retransmission_queue.pop_front() {
+            if socket.send_param.unacked_seq > item.packet.get_seq() {
+                dbg!("successfully acked", item.packet.get_seq());
+                self.publish_event(socket.get_socket_id(), TCPEventKind::Acked);
+            } else {
+                // ackされていないので戻す。
+                socket.retransmission_queue.push_front(item);
+                break;
+            }
+        }
+    }
+
+    fn established_handler(&self, socket: &mut Socket, packet: &TCPPacket) -> Result<()> {
+        dbg!("established handler");
+        if socket.send_param.unacked_seq < packet.get_ack() 
+            && packet.get_ack() <= socket.send_param.next {
+            socket.send_param.unacked_seq = packet.get_ack();
+            self.delete_acked_segment_from_retransmission_queue(socket);
+        } else if socket.send_param.next < packet.get_ack() {
+            // 未送信セグメントに対するACKは破棄
+            return Ok(());
+        }
+
+        if packet.get_flag() & tcpflags::ACK == 0 {
+            // ACKフラグが立っていないパッケトは破棄
+            return Ok(());
+        }
+        Ok(())
     }
 
     fn wait_event(&self, socket_id: SocketID, kind: TCPEventKind) {
