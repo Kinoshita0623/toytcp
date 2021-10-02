@@ -249,6 +249,31 @@ impl TCP {
 
     }
 
+    fn synrcvd_handler(
+        &self,
+        mut table: RwLockWriteGuard<HashMap<SocketID, Socket>>, 
+        socket_id: SocketID,
+        packet: &TCPPacket,
+    ) -> Result<()> {
+
+        dbg!("synrcvd handler");
+        let socket = table.get_mut(&socket_id).unwrap();
+        if packet.get_flag() & tcpflags::ACK > 0
+            && socket.send_param.unacked_seq <= packet.get_ack()
+            && packet.get_ack() <= socket.send_param.next {
+            socket.recv_param.next = packet.get_seq();
+            socket.send_param.unacked_seq = packet.get_ack();
+            socket.status = TcpStatus::Estableished;
+            dbg!("status: synrcvd ->", &socket.status);
+            if let Some(id) = socket.listening_socket {
+                let ls = table.get_mut(&id).unwrap();
+                ls.connected_connection_queue.push_back(socket_id);
+                self.publish_event(ls.get_socket_id(), TCPEventKind::ConnectionCompleted);
+            }
+        }
+        return Ok(());
+    }
+
     fn wait_event(&self, socket_id: SocketID, kind: TCPEventKind) {
         let (lock, cvar) = &self.event_condvar;
         let mut event = lock.lock().unwrap();
