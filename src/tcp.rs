@@ -34,21 +34,11 @@ impl TCP {
         });
         let cloned_tcp = tcp.clone();
         std::thread::spawn(move || {
-            cloned_tcp.recieve_handler().unwrap();
+            cloned_tcp.receive_handler().unwrap();
         });
         return tcp;
     }
 
-    fn select_unused_port(&self, rng: &mut ThreadRng) -> Result<u16> {
-        for _ in 0..(PORT_RANGE.end - PORT_RANGE.start) {
-            let local_port = rng.gen_range(PORT_RANGE);
-            let table = self.sockets.read().unwrap();
-            if table.keys().all(|k| local_port != k.2) {
-                return Ok(local_port);
-            }
-        }
-        anyhow::bail!("no avaiable port found.");
-    }
 
     pub fn connect(&self, addr: Ipv4Addr, port: u16) -> Result<SocketID> {
         let mut rng = rand::thread_rng();
@@ -61,6 +51,7 @@ impl TCP {
         )?;
 
         socket.send_param.initial_seq = rng.gen_range(1..1 << 31);
+        dbg!("initial_seq:", socket.send_param.initial_seq);
         socket.send_tcp_packet(socket.send_param.initial_seq, 0, tcpflags::SYN, &[])?;
         socket.send_param.unacked_seq = socket.send_param.initial_seq;
         socket.send_param.next = socket.send_param.initial_seq + 1;
@@ -73,9 +64,47 @@ impl TCP {
         drop(table);
         self.wait_event(socket_id, TCPEventKind::ConnectionCompleted);
         return Ok(socket_id);
-    } 
+    }
 
-    fn recieve_handler(&self) -> Result<()> {
+    pub fn listen(&self, local_addr: Ipv4Addr, local_port: u16) -> Result<SocketID> {
+        let socket = Socket::new(
+            local_addr,
+            UNDETERMINED_IP_ADDR,
+            local_port,
+            UNDETERMINED_PORT,
+            TcpStatus::Listen
+        )?;
+        let mut lock = self.sockets.write().unwrap();
+        let socket_id = socket.get_socket_id();
+        lock.insert(socket_id, socket);
+        return Ok(socket_id);
+    }
+
+    pub fn accept(&self, socket_id: SocketID) -> Result<SocketID> {
+        self.wait_event(socket_id, TCPEventKind::ConnectionCompleted);
+        let mut table = self.sockets.write().unwrap();
+        return Ok(
+            table
+            .get_mut(&socket_id)
+            .context(format!("no such socket: {:?}", socket_id))?
+            .connected_connection_queue
+            .pop_front()
+            .context("no connected socket")?
+        );
+    }
+    
+    fn select_unused_port(&self, rng: &mut ThreadRng) -> Result<u16> {
+        for _ in 0..(PORT_RANGE.end - PORT_RANGE.start) {
+            let local_port = rng.gen_range(PORT_RANGE);
+            let table = self.sockets.read().unwrap();
+            if table.keys().all(|k| local_port != k.2) {
+                return Ok(local_port);
+            }
+        }
+        anyhow::bail!("no avaiable port found.");
+    }
+
+    fn receive_handler(&self) -> Result<()> {
         dbg!("begin recv thread");
         let (_, mut receiver) = transport::transport_channel(
             65535,

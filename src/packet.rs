@@ -139,7 +139,7 @@ impl Packet for TCPPacket {
 
 impl Debug for TCPPacket {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        return write!(f, r" src:{}, dst:{}, flag:{}, payload_len: {}", self.get_src(), self.get_dest(), self.get_flag(), self.payload().len());
+        return write!(f, r" src:{}, dst:{}, seq:{}, ack:{}, flag:{}, payload_len: {}", self.get_src(), self.get_dest(), self.get_seq(), self.get_ack(), self.get_flag(), self.payload().len());
     }
 }
 
@@ -152,4 +152,10 @@ impl<'a> From<TcpPacket<'a>> for TCPPacket {
             buffer: packet.packet().to_vec(),
         };
     }
+}
+
+pub fn format_ipv4_address(address: &u32) -> String {
+    let bytes = address.to_be_bytes();
+    let str_address = format!("{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3]);
+    str_address
 }

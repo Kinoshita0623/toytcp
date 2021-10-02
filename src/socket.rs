@@ -44,6 +44,8 @@ pub struct Socket {
     pub send_param: SendParam,
     pub recv_param: RecvParam,
     pub status: TcpStatus,
+    pub connected_connection_queue: VecDeque<SocketID>,
+    pub listening_socket: Option<SocketID>,
     pub sender: TransportSender,
 }
 
@@ -75,6 +77,8 @@ impl Socket {
                 window: SOCKET_BUFFER_SIZE as u16,
                 tail: 0,
             },
+            connected_connection_queue: VecDeque::new(),
+            listening_socket: None,
             sender
         });
     }
@@ -104,7 +108,7 @@ impl Socket {
         return Ok(sent_size);
     }
 
-    pub fn get_socket_id(&mut self) -> SocketID {
+    pub fn get_socket_id(&self) -> SocketID {
         return SocketID(
             self.local_addr,
             self.remote_addr,
