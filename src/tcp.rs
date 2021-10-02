@@ -40,6 +40,9 @@ impl TCP {
     }
 
 
+    /**
+     * アクティブオープンの場合に使用されるメソッド
+     */
     pub fn connect(&self, addr: Ipv4Addr, port: u16) -> Result<SocketID> {
         let mut rng = rand::thread_rng();
         let mut socket = Socket::new(
@@ -66,6 +69,9 @@ impl TCP {
         return Ok(socket_id);
     }
 
+    /**
+     * Listen状態のSocketを生み出す。
+     */
     pub fn listen(&self, local_addr: Ipv4Addr, local_port: u16) -> Result<SocketID> {
         let socket = Socket::new(
             local_addr,
@@ -80,6 +86,9 @@ impl TCP {
         return Ok(socket_id);
     }
 
+    /**
+     * 接続済みSocketが生成されるまで待ち受ける
+     */
     pub fn accept(&self, socket_id: SocketID) -> Result<SocketID> {
         self.wait_event(socket_id, TCPEventKind::ConnectionCompleted);
         let mut table = self.sockets.write().unwrap();
@@ -132,6 +141,8 @@ impl TCP {
                 }
             };
             let mut table = self.sockets.write().unwrap();
+
+            // パケットが管轄内であるか？
             let socket = match table.get_mut(
                 &SocketID(
                     local_addr,
@@ -164,7 +175,7 @@ impl TCP {
                 TcpStatus::SynRcvd => self.synrcvd_handler(table, socket_id, &packet),
                 TcpStatus::SynSent => self.synsent_handler(socket, &packet),
                 _ => {
-                    dbg!("not implemented state");
+                    dbg!("not implemented state:", &socket.status);
                     Ok(())
                 }
             } {
