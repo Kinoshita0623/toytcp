@@ -13,8 +13,13 @@ fn main() -> Result<()> {
 
 fn echo_client(remote_addr: Ipv4Addr, remote_port: u16) -> Result<()> {
     let tcp = TCP::new();
-    let _ = tcp.connect(remote_addr, remote_port)?;
-    Ok(())
+    let socket_id = tcp.connect(remote_addr, remote_port)?;
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        tcp.send(socket_id, input.as_bytes())?;
+    }
 }
 
 // 09:06:14.839398 IP 10.0.0.1.42502 > 10.0.1.1.40000: Flags [S], seq 1781165593, win 4380, length 0

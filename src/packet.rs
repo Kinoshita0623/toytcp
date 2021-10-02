@@ -93,11 +93,11 @@ impl TCPPacket {
     }
 
     pub fn set_seq(&mut self, num: u32) {
-        self.buffer[4..8].copy_from_slice(&num.to_be_bytes());
+        self.buffer[4..8].copy_from_slice(&num.to_be_bytes())
     }
 
     pub fn set_ack(&mut self, num: u32) {
-        self.buffer[8..12].copy_from_slice(&num.to_be_bytes());
+        self.buffer[8..12].copy_from_slice(&num.to_be_bytes())
     }
 
     pub fn set_data_offset(&mut self, offset: u8) {
@@ -110,15 +110,15 @@ impl TCPPacket {
 
 
     pub fn set_window_size(&mut self, window: u16) {
-        self.buffer[14..16].copy_from_slice(&window.to_be_bytes());
+        self.buffer[14..16].copy_from_slice(&window.to_be_bytes())
     }
 
     pub fn set_checksum(&mut self, checksum: u16) {
-        self.buffer[16..18].copy_from_slice(&checksum.to_be_bytes());
+        self.buffer[16..18].copy_from_slice(&checksum.to_be_bytes())
     }
 
     pub fn set_payload(&mut self, payload: &[u8]) {
-        self.buffer[TCP_HEADER_SIZE..TCP_HEADER_SIZE + payload.len() as usize].copy_from_slice(payload);
+        self.buffer[TCP_HEADER_SIZE..TCP_HEADER_SIZE + payload.len() as usize].copy_from_slice(payload)
     }
 
     pub fn is_correct_checksum(&self, local_addr: Ipv4Addr, remote_addr: Ipv4Addr) -> bool {
