@@ -68,7 +68,7 @@ impl TCP {
 
                         // 再送回数を更新
                         item.transmission_count += 1;
-                        
+
                         // 最終再送時間を更新
                         item.latest_transmission_time = SystemTime::now();
                         socket.retransmission_queue.push_back(item);
@@ -81,7 +81,7 @@ impl TCP {
                 }
             }
             drop(table);
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(10));
         }
     }
 
